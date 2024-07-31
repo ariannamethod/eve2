@@ -505,7 +505,7 @@ def model_export(model, filepath, version, dtype=torch.float32):
     elif version == 2:
         version2_export(model, filepath)
     elif version == -1:
-        hf_export(model, filepath, dtype)
+        hf_export(llama_model=model, filepath=filepath, dtype=dtype)
     else:
         raise ValueError(f"unknown version {version}")
 
@@ -564,4 +564,4 @@ if __name__ == "__main__":
         parser.error("Can't load input model!")
 
     # export
-    model_export(model, args.filepath, args.version, args.dtype)
+    model_export(model, args.filepath, args.version, dtype)
