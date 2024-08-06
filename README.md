@@ -360,6 +360,7 @@ If your candidate PRs have elements of these it doesn't mean they won't get merg
   - [llamajs](https://github.com/agershun/llamajs) by @[agershun](https://github.com/agershun): a JavaScript port of this project
   - [llama2.ts](https://github.com/wizzard0/llama2.ts) by @[oleksandr_now](https://twitter.com/oleksandr_now): a TypeScript port of this project. Full Llama2-7B capable.
   - [llama2.c-emscripten](https://github.com/gohai/llama2.c-emscripten) by @[gohai](https://github.com/gohai): Emscripten (JavaScript) port, based on @ggerganov's initial prototype
+  - [llama2js](https://github.com/jellehak/llama2.js) by @[jellehak](https://github.com/jellehak): a JavaScript port of this project / @[epicure](https://github.com/epicure) to be used as a library for browser or nodejs
 - Zig
   - [llama2.zig](https://github.com/cgbur/llama2.zig) by @[cgbur](https://github.com/cgbur): A Zig port of this project
   - [llama2.zig](https://github.com/vodkaslime/llama2.zig) by @[vodkaslime](https://github.com/vodkaslime): a Zig port of this project
