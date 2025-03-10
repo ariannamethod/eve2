@@ -21,14 +21,15 @@ int GS = 0; // group size global for quantization of the weights
 // ----------------------------------------------------------------------------
 // Transformer model
 
+#pragma pack(push, 1)
 typedef struct {
-    int dim; // transformer dimension
-    int hidden_dim; // for ffn layers
-    int n_layers; // number of layers
-    int n_heads; // number of query heads
-    int n_kv_heads; // number of key/value heads (can be < query heads because of multiquery)
-    int vocab_size; // vocabulary size, usually 256 (byte-level)
-    int seq_len; // max sequence length
+    int32_t dim; // transformer dimension
+    int32_t hidden_dim; // for ffn layers
+    int32_t n_layers; // number of layers
+    int32_t n_heads; // number of query heads
+    int32_t n_kv_heads; // number of key/value heads (can be < query heads because of multiquery)
+    int32_t vocab_size; // vocabulary size, usually 256 (byte-level)
+    int32_t seq_len; // max sequence length
 } Config;
 
 typedef struct {
@@ -58,6 +59,7 @@ typedef struct {
     // (optional) classifier weights for the logits, on the last layer
     QuantizedTensor *wcls;
 } TransformerWeights;
+#pragma pack(pop)
 
 typedef struct {
     // current wave of activations
@@ -84,7 +86,7 @@ typedef struct {
     RunState state; // buffers for the "wave" of activations in the forward pass
     // some more state needed to properly clean up the memory mapping (sigh)
     int fd; // file descriptor for memory mapping
-    float* data; // memory mapped data pointer
+    uint8_t* data; // memory mapped data pointer
     ssize_t file_size; // size of the checkpoint file in bytes
 } Transformer;
 
@@ -217,36 +219,29 @@ void memory_map_weights(TransformerWeights *w, Config* p, void* ptr, uint8_t sha
 }
 
 void read_checkpoint(char* checkpoint, Config* config, TransformerWeights* weights,
-                     int* fd, float** data, ssize_t* file_size) {
-    FILE *file = fopen(checkpoint, "rb");
-    if (!file) { fprintf(stderr, "Couldn't open file %s\n", checkpoint); exit(EXIT_FAILURE); }
-    // read in magic number (uint32), has to be 0x616b3432, i.e. "ak42" in ASCII
-    uint32_t magic_number;
-    if (fread(&magic_number, sizeof(uint32_t), 1, file) != 1) { exit(EXIT_FAILURE); }
-    if (magic_number != 0x616b3432) { fprintf(stderr, "Bad magic number\n"); exit(EXIT_FAILURE); }
-    // read in the version number (uint32), has to be 2
-    int version;
-    if (fread(&version, sizeof(int), 1, file) != 1) { exit(EXIT_FAILURE); }
-    if (version != 2) { fprintf(stderr, "Bad version %d, need version 2\n", version); exit(EXIT_FAILURE); }
-    int header_size = 256; // the header size for version 2 in bytes
-    // read in the Config
-    if (fread(config, sizeof(Config), 1, file) != 1) { exit(EXIT_FAILURE); }
-    // read in flags
-    uint8_t shared_classifier; // a byte to indicate if the classifier is shared
-    if (fread(&shared_classifier, sizeof(uint8_t), 1, file) != 1) { exit(EXIT_FAILURE); }
-    int group_size; // the group size used in quantization
-    if (fread(&group_size, sizeof(int), 1, file) != 1) { exit(EXIT_FAILURE); }
-    GS = group_size; // set as global, as it will be used in many places
-    // figure out the file size
-    fseek(file, 0, SEEK_END); // move file pointer to end of file
-    *file_size = ftell(file); // get the file size, in bytes
-    fclose(file);
-    // memory map the Transformer weights into the data pointer
-    *fd = open(checkpoint, O_RDONLY); // open in read only mode
-    if (*fd == -1) { fprintf(stderr, "open failed!\n"); exit(EXIT_FAILURE); }
-    *data = mmap(NULL, *file_size, PROT_READ, MAP_PRIVATE, *fd, 0);
+                     int* fd, uint8_t** data, ssize_t* file_size) {
+    *fd = open(checkpoint, O_RDONLY);
+    if (*fd == -1) { fprintf(stderr, "Couldn't open file %s\n", checkpoint); exit(EXIT_FAILURE); }
+    *file_size = lseek(*fd, 0, SEEK_END); // get the file size, in bytes
+    // memory map the Config and Transformer weights into the data pointer
+    uint8_t* cur = *data = mmap(NULL, *file_size, PROT_READ, MAP_PRIVATE, *fd, 0);
     if (*data == MAP_FAILED) { fprintf(stderr, "mmap failed!\n"); exit(EXIT_FAILURE); }
-    void* weights_ptr = ((char*)*data) + header_size; // skip header bytes. char is 1 byte
+    // read in magic number (uint32), has to be 0x616b3432, i.e. "ak42" in ASCII
+    uint32_t magic_number = *(uint32_t*)cur;
+    cur += sizeof(uint32_t);
+    if (magic_number != 0x616b3432) { fprintf(stderr, "Bad magic number\n"); exit(EXIT_FAILURE); }
+    uint32_t version = *(uint32_t*)cur;
+    cur += sizeof(uint32_t);
+    if (version != 2) { fprintf(stderr, "Bad version %d, need version 2\n", version); exit(EXIT_FAILURE); }
+    memcpy(config, cur, sizeof(Config));
+    cur += sizeof(Config);
+    uint8_t shared_classifier = *(uint8_t*)cur; // a byte to indicate if the classifier is shared
+    cur += sizeof(uint8_t);
+    uint32_t group_size = *(uint32_t*)cur; // the group size used in quantization
+    cur += sizeof(uint32_t);
+    GS = group_size; // set as global, as it will be used in many places
+    int header_size = 256; // the header size for version 2 in bytes
+    void* weights_ptr = (void*)(*data + header_size); // skip header bytes
     memory_map_weights(weights, config, weights_ptr, shared_classifier);
 }
 
@@ -703,7 +698,7 @@ typedef struct {
     ProbIndex* probindex; // buffer used in top-p sampling
     float temperature;
     float topp;
-    unsigned long long rng_state;
+    uint64_t rng_state;
 } Sampler;
 
 int sample_argmax(float* probabilities, int n) {
@@ -783,7 +778,7 @@ int sample_topp(float* probabilities, int n, float topp, ProbIndex* probindex, f
     return probindex[last_idx].index; // in case of rounding errors
 }
 
-void build_sampler(Sampler* sampler, int vocab_size, float temperature, float topp, unsigned long long rng_seed) {
+void build_sampler(Sampler* sampler, int vocab_size, float temperature, float topp, uint64_t rng_seed) {
     sampler->vocab_size = vocab_size;
     sampler->temperature = temperature;
     sampler->topp = topp;
@@ -796,14 +791,14 @@ void free_sampler(Sampler* sampler) {
     free(sampler->probindex);
 }
 
-unsigned int random_u32(unsigned long long *state) {
+uint32_t random_u32(uint64_t *state) {
     // xorshift rng: https://en.wikipedia.org/wiki/Xorshift#xorshift.2A
     *state ^= *state >> 12;
     *state ^= *state << 25;
     *state ^= *state >> 27;
     return (*state * 0x2545F4914F6CDD1Dull) >> 32;
 }
-float random_f32(unsigned long long *state) { // random float32 in [0,1)
+float random_f32(uint64_t *state) { // random float32 in [0,1)
     return (random_u32(state) >> 8) / 16777216.0f;
 }
 
@@ -934,7 +929,6 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
     int8_t user_turn = 1; // user starts
     int next;        // will store the next token in the sequence
     int token;       // stores the current token to feed into the transformer
-    int prev_token;
     int pos = 0;     // position in the sequence
     while (pos < steps) {
 
@@ -1031,7 +1025,7 @@ int main(int argc, char *argv[]) {
     float topp = 0.9f;          // top-p in nucleus sampling. 1.0 = off. 0.9 works well, but slower
     int steps = 256;            // number of steps to run for
     char *prompt = NULL;        // prompt string
-    unsigned long long rng_seed = 0; // seed rng with time by default
+    uint64_t rng_seed = 0; // seed rng with time by default
     char *mode = "generate";    // generate|chat
     char *system_prompt = NULL; // the (optional) system prompt to use in chat mode
 
@@ -1045,7 +1039,7 @@ int main(int argc, char *argv[]) {
         // read in the args
         if (argv[i][1] == 't') { temperature = atof(argv[i + 1]); }
         else if (argv[i][1] == 'p') { topp = atof(argv[i + 1]); }
-        else if (argv[i][1] == 's') { rng_seed = atoi(argv[i + 1]); }
+        else if (argv[i][1] == 's') { rng_seed = strtoull(argv[i + 1], NULL, 10); }
         else if (argv[i][1] == 'n') { steps = atoi(argv[i + 1]); }
         else if (argv[i][1] == 'i') { prompt = argv[i + 1]; }
         else if (argv[i][1] == 'z') { tokenizer_path = argv[i + 1]; }
@@ -1055,7 +1049,7 @@ int main(int argc, char *argv[]) {
     }
 
     // parameter validation/overrides
-    if (rng_seed <= 0) rng_seed = (unsigned int)time(NULL);
+    if (rng_seed <= 0) rng_seed = (uint64_t)time(NULL);
     if (temperature < 0.0) temperature = 0.0;
     if (topp < 0.0 || 1.0 < topp) topp = 0.9;
     if (steps < 0) steps = 0;
