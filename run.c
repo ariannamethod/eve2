@@ -228,6 +228,47 @@ void matmul(float* xout, float* x, float* w, int n, int d) {
     }
 }
 
+void multihead_attention(Config* p, RunState* s, int loff, int kv_dim, int kv_mul, int head_size, int pos) {
+    int h;
+    #pragma omp parallel for private(h)
+    for (h = 0; h < p->n_heads; h++) {
+        // get the query vector for this head
+        float* q = s->q + h * head_size;
+        // attention scores for this head
+        float* att = s->att + h * p->seq_len;
+        // iterate over all timesteps, including the current one
+        for (int t = 0; t <= pos; t++) {
+            // get the key vector for this head and at this timestep
+            float* k = s->key_cache + loff + t * kv_dim + (h / kv_mul) * head_size;
+            // calculate the attention score as the dot product of q and k
+            float score = 0.0f;
+            for (int i = 0; i < head_size; i++) {
+                score += q[i] * k[i];
+            }
+            score /= sqrtf(head_size);
+            // save the score to the attention buffer
+            att[t] = score;
+        }
+
+        // softmax the scores to get attention weights, from 0..pos inclusively
+        softmax(att, pos + 1);
+
+        // weighted sum of the values, store back into xb
+        float* xb = s->xb + h * head_size;
+        memset(xb, 0, head_size * sizeof(float));
+        for (int t = 0; t <= pos; t++) {
+            // get the value vector for this head and at this timestep
+            float* v = s->value_cache + loff + t * kv_dim + (h / kv_mul) * head_size;
+            // get the attention weight for this timestep
+            float a = att[t];
+            // accumulate the weighted value into xb
+            for (int i = 0; i < head_size; i++) {
+                xb[i] += a * v[i];
+            }
+        }
+    }
+}
+
 float* forward(Transformer* transformer, int token, int pos) {
 
     // a few convenience variables
@@ -278,45 +319,7 @@ float* forward(Transformer* transformer, int token, int pos) {
             }
         }
 
-        // multihead attention. iterate over all heads
-        int h;
-        #pragma omp parallel for private(h)
-        for (h = 0; h < p->n_heads; h++) {
-            // get the query vector for this head
-            float* q = s->q + h * head_size;
-            // attention scores for this head
-            float* att = s->att + h * p->seq_len;
-            // iterate over all timesteps, including the current one
-            for (int t = 0; t <= pos; t++) {
-                // get the key vector for this head and at this timestep
-                float* k = s->key_cache + loff + t * kv_dim + (h / kv_mul) * head_size;
-                // calculate the attention score as the dot product of q and k
-                float score = 0.0f;
-                for (int i = 0; i < head_size; i++) {
-                    score += q[i] * k[i];
-                }
-                score /= sqrtf(head_size);
-                // save the score to the attention buffer
-                att[t] = score;
-            }
-
-            // softmax the scores to get attention weights, from 0..pos inclusively
-            softmax(att, pos + 1);
-
-            // weighted sum of the values, store back into xb
-            float* xb = s->xb + h * head_size;
-            memset(xb, 0, head_size * sizeof(float));
-            for (int t = 0; t <= pos; t++) {
-                // get the value vector for this head and at this timestep
-                float* v = s->value_cache + loff + t * kv_dim + (h / kv_mul) * head_size;
-                // get the attention weight for this timestep
-                float a = att[t];
-                // accumulate the weighted value into xb
-                for (int i = 0; i < head_size; i++) {
-                    xb[i] += a * v[i];
-                }
-            }
-        }
+        multihead_attention(p, s, loff, kv_dim, kv_mul, head_size, pos);
 
         // final matmul to get the output of the attention
         matmul(s->xb2, s->xb, w->wo + l*dim*dim, dim, dim);
@@ -449,7 +452,46 @@ int str_lookup(char *str, TokenIndex *sorted_vocab, int vocab_size) {
     return res != NULL ? res->id : -1;
 }
 
-void encode(Tokenizer* t, char *text, int8_t bos, int8_t eos, int *tokens, int *n_tokens) {
+void process_utf8_bytes(Tokenizer* t, char* c, char* str_buffer, size_t* str_len, int* tokens, int* n_tokens) {
+    // reset buffer if the current byte is ASCII or a leading byte
+    // 0xC0 is 11000000, so (*c & 0xC0) keeps the first 2 bits and zeros the rest
+    // 0x80 is 10000000
+    // in UTF-8, all continuation bytes start with "10" in first two bits
+    // so in English this is: "if this byte is not a continuation byte"
+    if ((*c & 0xC0) != 0x80) {
+        // this byte must be either a leading byte (11...) or an ASCII char (0x...)
+        // => reset our location, as we're starting a new UTF-8 codepoint
+        *str_len = 0;
+    }
+
+    // append the current byte to the buffer
+    str_buffer[(*str_len)++] = *c; // ++ is post-increment, incremented after this line
+    str_buffer[*str_len] = '\0';
+
+    // while the next character is a continuation byte, continue appending
+    // but if there are too many of them, just stop to avoid overruning str_buffer size.
+    if ((*(c+1) & 0xC0) == 0x80 && *str_len < 4) {
+        return; // continue in the calling loop
+    }
+
+    // ok c+1 is not a continuation byte, so we've read in a full codepoint
+    int id = str_lookup(str_buffer, t->sorted_vocab, t->vocab_size);
+
+    if (id != -1) {
+        // we found this codepoint in vocab, add it as a token
+        tokens[(*n_tokens)++] = id;
+    } else {
+        // byte_fallback encoding: just encode each byte as a token
+        // +3 is here because the first 3 vocab elements are <unk>, <s>, </s>
+        // so the individual bytes only start at index 3
+        for (int i=0; i < *str_len; i++) {
+            tokens[(*n_tokens)++] = (unsigned char)str_buffer[i] + 3;
+        }
+    }
+    *str_len = 0; // protect against a sequence of stray UTF8 continuation bytes
+}
+
+void encode(Tokenizer* t, char *text, int8_t bos, int8_t eos, int *tokens, int *n_tokens) { 
     // encode the string text (input) into an upper-bound preallocated tokens[] array
     // bos != 0 means prepend the BOS token (=1), eos != 0 means append the EOS token (=2)
     if (text == NULL) { fprintf(stderr, "cannot encode NULL text\n"); exit(EXIT_FAILURE); }
@@ -494,43 +536,7 @@ void encode(Tokenizer* t, char *text, int8_t bos, int8_t eos, int *tokens, int *
 
     // process the raw (UTF-8) byte sequence of the input string
     for (char *c = text; *c != '\0'; c++) {
-
-        // reset buffer if the current byte is ASCII or a leading byte
-        // 0xC0 is 11000000, so (*c & 0xC0) keeps the first 2 bits and zeros the rest
-        // 0x80 is 10000000
-        // in UTF-8, all continuation bytes start with "10" in first two bits
-        // so in English this is: "if this byte is not a continuation byte"
-        if ((*c & 0xC0) != 0x80) {
-            // this byte must be either a leading byte (11...) or an ASCII char (0x...)
-            // => reset our location, as we're starting a new UTF-8 codepoint
-            str_len = 0;
-        }
-
-        // append the current byte to the buffer
-        str_buffer[str_len++] = *c; // ++ is post-increment, incremented after this line
-        str_buffer[str_len] = '\0';
-
-        // while the next character is a continuation byte, continue appending
-        // but if there are too many of them, just stop to avoid overruning str_buffer size.
-        if ((*(c+1) & 0xC0) == 0x80 && str_len < 4) {
-            continue;
-        }
-
-        // ok c+1 is not a continuation byte, so we've read in a full codepoint
-        int id = str_lookup(str_buffer, t->sorted_vocab, t->vocab_size);
-
-        if (id != -1) {
-            // we found this codepoint in vocab, add it as a token
-            tokens[(*n_tokens)++] = id;
-        } else {
-            // byte_fallback encoding: just encode each byte as a token
-            // +3 is here because the first 3 vocab elements are <unk>, <s>, </s>
-            // so the individual bytes only start at index 3
-            for (int i=0; i < str_len; i++) {
-                tokens[(*n_tokens)++] = (unsigned char)str_buffer[i] + 3;
-            }
-        }
-        str_len = 0; // protect against a sequence of stray UTF8 continuation bytes
+        process_utf8_bytes(t, c, str_buffer, &str_len, tokens, n_tokens);
     }
 
     // merge the best consecutive pair each iteration, according the scores in vocab_scores
@@ -799,6 +805,16 @@ void read_stdin(const char* guide, char* buffer, size_t bufsize) {
 // python reference and that seemed ok, but this was not thoroughly tested and
 // is not safely implemented, it's more a proof of concept atm.
 
+void render_chat_prompt(char* system_prompt, char* user_prompt, char* rendered_prompt, int pos) {
+    if (pos == 0 && system_prompt[0] != '\0') {
+        char system_template[] = "[INST] <<SYS>>\n%s\n<</SYS>>\n\n%s [/INST]";
+        sprintf(rendered_prompt, system_template, system_prompt, user_prompt);
+    } else {
+        char user_template[] = "[INST] %s [/INST]";
+        sprintf(rendered_prompt, user_template, user_prompt);
+    }
+}
+
 void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
           char *cli_user_prompt, char *cli_system_prompt, int steps) {
 
@@ -821,33 +837,8 @@ void chat(Transformer *transformer, Tokenizer *tokenizer, Sampler *sampler,
 
         // when it is the user's turn to contribute tokens to the dialog...
         if (user_turn) {
-            // get the (optional) system prompt at position 0
-            if (pos == 0) {
-                // at position 0, the user can also contribute a system prompt
-                if (cli_system_prompt == NULL) {
-                    // system prompt was not passed in, attempt to get it from stdin
-                    read_stdin("Enter system prompt (optional): ", system_prompt, sizeof(system_prompt));
-                } else {
-                    // system prompt was passed in, use it
-                    strcpy(system_prompt, cli_system_prompt);
-                }
-            }
-            // get the user prompt
-            if (pos == 0 && cli_user_prompt != NULL) {
-                // user prompt for position 0 was passed in, use it
-                strcpy(user_prompt, cli_user_prompt);
-            } else {
-                // otherwise get user prompt from stdin
-                read_stdin("User: ", user_prompt, sizeof(user_prompt));
-            }
-            // render user/system prompts into the Llama 2 Chat schema
-            if (pos == 0 && system_prompt[0] != '\0') {
-                char system_template[] = "[INST] <<SYS>>\n%s\n<</SYS>>\n\n%s [/INST]";
-                sprintf(rendered_prompt, system_template, system_prompt, user_prompt);
-            } else {
-                char user_template[] = "[INST] %s [/INST]";
-                sprintf(rendered_prompt, user_template, user_prompt);
-            }
+            get_chat_prompts(system_prompt, user_prompt, cli_user_prompt, cli_system_prompt, pos);
+            render_chat_prompt(system_prompt, user_prompt, rendered_prompt, pos);
             // encode the rendered prompt into tokens
             encode(tokenizer, rendered_prompt, 1, 0, prompt_tokens, &num_prompt_tokens);
             user_idx = 0; // reset the user index
@@ -903,43 +894,47 @@ void error_usage() {
     exit(EXIT_FAILURE);
 }
 
-int main(int argc, char *argv[]) {
-
+void parse_cli_arguments(int argc, char *argv[], char **checkpoint_path, char **tokenizer_path, float *temperature, float *topp, int *steps, char **prompt, unsigned long long *rng_seed, char **mode, char **system_prompt) {
     // default parameters
-    char *checkpoint_path = NULL;  // e.g. out/model.bin
-    char *tokenizer_path = "tokenizer.bin";
-    float temperature = 1.0f;   // 0.0 = greedy deterministic. 1.0 = original. don't set higher
-    float topp = 0.9f;          // top-p in nucleus sampling. 1.0 = off. 0.9 works well, but slower
-    int steps = 256;            // number of steps to run for
-    char *prompt = NULL;        // prompt string
-    unsigned long long rng_seed = 0; // seed rng with time by default
-    char *mode = "generate";    // generate|chat
-    char *system_prompt = NULL; // the (optional) system prompt to use in chat mode
+    *checkpoint_path = NULL;  // e.g. out/model.bin
+    *tokenizer_path = "tokenizer.bin";
+    *temperature = 1.0f;   // 0.0 = greedy deterministic. 1.0 = original. don't set higher
+    *topp = 0.9f;          // top-p in nucleus sampling. 1.0 = off. 0.9 works well, but slower
+    *steps = 256;            // number of steps to run for
+    *prompt = NULL;        // prompt string
+    *rng_seed = 0; // seed rng with time by default
+    *mode = "generate";    // generate|chat
+    *system_prompt = NULL; // the (optional) system prompt to use in chat mode
 
     // poor man's C argparse so we can override the defaults above from the command line
-    if (argc >= 2) { checkpoint_path = argv[1]; } else { error_usage(); }
+    if (argc >= 2) { *checkpoint_path = argv[1]; } else { error_usage(); }
     for (int i = 2; i < argc; i+=2) {
         // do some basic validation
         if (i + 1 >= argc) { error_usage(); } // must have arg after flag
         if (argv[i][0] != '-') { error_usage(); } // must start with dash
         if (strlen(argv[i]) != 2) { error_usage(); } // must be -x (one dash, one letter)
         // read in the args
-        if (argv[i][1] == 't') { temperature = atof(argv[i + 1]); }
-        else if (argv[i][1] == 'p') { topp = atof(argv[i + 1]); }
-        else if (argv[i][1] == 's') { rng_seed = atoi(argv[i + 1]); }
-        else if (argv[i][1] == 'n') { steps = atoi(argv[i + 1]); }
-        else if (argv[i][1] == 'i') { prompt = argv[i + 1]; }
-        else if (argv[i][1] == 'z') { tokenizer_path = argv[i + 1]; }
-        else if (argv[i][1] == 'm') { mode = argv[i + 1]; }
-        else if (argv[i][1] == 'y') { system_prompt = argv[i + 1]; }
+        if (argv[i][1] == 't') { *temperature = atof(argv[i + 1]); }
+        else if (argv[i][1] == 'p') { *topp = atof(argv[i + 1]); }
+        else if (argv[i][1] == 's') { *rng_seed = atoi(argv[i + 1]); }
+        else if (argv[i][1] == 'n') { *steps = atoi(argv[i + 1]); }
+        else if (argv[i][1] == 'i') { *prompt = argv[i + 1]; }
+        else if (argv[i][1] == 'z') { *tokenizer_path = argv[i + 1]; }
+        else if (argv[i][1] == 'm') { *mode = argv[i + 1]; }
+        else if (argv[i][1] == 'y') { *system_prompt = argv[i + 1]; }
         else { error_usage(); }
     }
 
     // parameter validation/overrides
-    if (rng_seed <= 0) rng_seed = (unsigned int)time(NULL);
-    if (temperature < 0.0) temperature = 0.0;
-    if (topp < 0.0 || 1.0 < topp) topp = 0.9;
-    if (steps < 0) steps = 0;
+    if (*rng_seed <= 0) *rng_seed = (unsigned int)time(NULL);
+    if (*temperature < 0.0) *temperature = 0.0;
+    if (*topp < 0.0 || 1.0 < *topp) *topp = 0.9;
+    if (*steps < 0) *steps = 0;
+}
+
+int main(int argc, char *argv[]) {
+
+    parse_cli_arguments(argc, argv, &checkpoint_path, &tokenizer_path, &temperature, &topp, &steps, &prompt, &rng_seed, &mode, &system_prompt);
 
     // build the Transformer via the model .bin file
     Transformer transformer;
