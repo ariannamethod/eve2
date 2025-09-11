@@ -400,7 +400,8 @@ If your candidate PRs have elements of these it doesn't mean they won't get merg
 - [llama2.c-zh - Bilingual Chinese and English](https://github.com/chenyangMl/llama2.c-zh) by @[chenyangMl](https://github.com/chenyangMl): Expand tokenizer to support training and inference in both Chinese and English
 - Haskell
   - [llama2.hs](https://github.com/chris-ch/llama2.hs) by @[chris-ch](https://github.com/chris-ch): an Haskell port of this project
-
+- PSP
+  - [llama2-psp]([https://github.com/chris-ch/llama2.hs](https://github.com/caiomadeira/llama2-psp)) by @[caiomadeira]([https://github.com/chris-ch](https://github.com/caiomadeira)): llama2.c on Playstation Portable
 ## unsorted todos
 
 - add support in run.c of reading version 1+ files from export, later deprecate "version 0"
