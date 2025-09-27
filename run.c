@@ -161,9 +161,106 @@ void read_checkpoint(char* checkpoint, Config* config, TransformerWeights* weigh
     memory_map_weights(weights, config, weights_ptr, shared_weights);
 }
 
+void memory_map_weights_v1(TransformerWeights *w, Config* p, void* ptr, uint8_t shared_classifier) {
+    int head_size = p->dim / p->n_heads;
+    float* fptr = (float*)ptr; // all weights are FP32 in v1
+
+    // 1) per-layer RMSNorm before Attention
+    w->rms_att_weight = fptr;
+    fptr += (size_t)p->n_layers * (size_t)p->dim;
+
+    // 2) per-layer RMSNorm before FFN
+    w->rms_ffn_weight = fptr;
+    fptr += (size_t)p->n_layers * (size_t)p->dim;
+
+    // 3) final RMSNorm
+    w->rms_final_weight = fptr;
+    fptr += (size_t)p->dim;
+
+    // 4) token embedding table
+    w->token_embedding_table = fptr;
+    fptr += (size_t)p->vocab_size * (size_t)p->dim;
+
+    // 5) Attention weights (Q, K, V, O)
+    w->wq = fptr; // per layer: dim x (n_heads*head_size) == dim x dim
+    fptr += (size_t)p->n_layers * (size_t)p->dim * (size_t)(p->n_heads * head_size);
+
+    w->wk = fptr; // per layer: dim x (n_kv_heads*head_size)
+    fptr += (size_t)p->n_layers * (size_t)p->dim * (size_t)(p->n_kv_heads * head_size);
+
+    w->wv = fptr; // same shape as wk
+    fptr += (size_t)p->n_layers * (size_t)p->dim * (size_t)(p->n_kv_heads * head_size);
+
+    w->wo = fptr; // per layer: (n_heads*head_size) x dim
+    fptr += (size_t)p->n_layers * (size_t)(p->n_heads * head_size) * (size_t)p->dim;
+
+    // 6) FFN weights (SwiGLU)
+    w->w1 = fptr; // dim x hidden_dim
+    fptr += (size_t)p->n_layers * (size_t)p->dim * (size_t)p->hidden_dim;
+
+    w->w2 = fptr; // hidden_dim x dim
+    fptr += (size_t)p->n_layers * (size_t)p->hidden_dim * (size_t)p->dim;
+
+    w->w3 = fptr; // dim x hidden_dim
+    fptr += (size_t)p->n_layers * (size_t)p->dim * (size_t)p->hidden_dim;
+
+    // 7) classifier (tied or untied)
+    if (shared_classifier) {
+        // tied: reuse token embedding as output classifier
+        w->wcls = w->token_embedding_table;
+    } else {
+        // untied: there is an extra (vocab_size * dim) block at the end
+        w->wcls = fptr;
+        fptr += (size_t)p->vocab_size * (size_t)p->dim;
+    }
+}
+
+void read_checkpoint_v1(char* checkpoint, Config* config, TransformerWeights* weights,
+                        int* fd, float** data, ssize_t* file_size) {
+    const int header_size = 256;
+
+    FILE *file = fopen(checkpoint, "rb");
+    if (!file) { fprintf(stderr, "Couldn't open file %s\n", checkpoint); exit(EXIT_FAILURE); }
+
+    // magic (must be 0x616b3432 == "ak42")
+    uint32_t magic_number;
+    if (fread(&magic_number, sizeof(uint32_t), 1, file) != 1) { exit(EXIT_FAILURE); }
+    if (magic_number != 0x616b3432u) { fprintf(stderr, "Bad magic number\n"); exit(EXIT_FAILURE); }
+
+    // version (must be 1 for v1 FP32)
+    int version;
+    if (fread(&version, sizeof(int), 1, file) != 1) { exit(EXIT_FAILURE); }
+    if (version != 1) { fprintf(stderr, "Bad version %d, need version 1\n", version); exit(EXIT_FAILURE); }
+
+    // read the 7 ints directly into our Config struct
+    if (fread(config, sizeof(Config), 1, file) != 1) { exit(EXIT_FAILURE); }
+
+    // read flags
+    uint8_t shared_classifier = 0; // 1 = tied classifier; 0 = separate output.weight
+    if (fread(&shared_classifier, sizeof(uint8_t), 1, file) != 1) { exit(EXIT_FAILURE); }
+
+    // compute file size
+    fseek(file, 0, SEEK_END);
+    *file_size = ftell(file);
+    fclose(file);
+
+    // mmap the entire file
+    *fd = open(checkpoint, O_RDONLY);
+    if (*fd == -1) { fprintf(stderr, "open failed!\n"); exit(EXIT_FAILURE); }
+    *data = mmap(NULL, *file_size, PROT_READ, MAP_PRIVATE, *fd, 0);
+    if (*data == MAP_FAILED) { fprintf(stderr, "mmap failed!\n"); exit(EXIT_FAILURE); }
+
+    // weights start right after the 256-byte header
+    void* weights_ptr = ((char*)*data) + header_size;
+
+    // map all pointers according to the v1 FP32 layout
+    memory_map_weights_v1(weights, config, weights_ptr, shared_classifier);
+}
+
+
 void build_transformer(Transformer *t, char* checkpoint_path) {
     // read in the Config and the Weights from the checkpoint
-    read_checkpoint(checkpoint_path, &t->config, &t->weights, &t->fd, &t->data, &t->file_size);
+    read_checkpoint_v1(checkpoint_path, &t->config, &t->weights, &t->fd, &t->data, &t->file_size);
     // allocate the RunState buffers
     malloc_run_state(&t->state, &t->config);
 }
