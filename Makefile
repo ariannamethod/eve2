@@ -70,7 +70,13 @@ testcc:
 	$(CC) -DVERBOSITY=$(VERBOSITY) -O3 -o testc test.c -lm
 	./testc
 
+# compile chat CLI wrapper
+.PHONY: chat
+chat: chat_cli.c
+	$(CC) -O3 -o chat chat_cli.c
+
 .PHONY: clean
 clean:
 	rm -f run
 	rm -f runq
+	rm -f chat
