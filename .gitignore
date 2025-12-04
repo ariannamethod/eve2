@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Training data and models
+data/
+out/
+external_corpus/
+*.bin
+*.pt
+training.log
+*.log
+training_continue.log
+
+# Compiled binaries
+run
+runq
+chat
+testc
+*.exe
+*.dll
+*.so
+*.dylib
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Internal documents and prompts
+arianna_prompt.txt
+*.prompt
+*.secret
+
+# Internal documentation (optional - uncomment if you want to exclude)
+# MONITORING.md
+# COMMANDS.md
+# PUSH_TO_GITHUB.md
+
