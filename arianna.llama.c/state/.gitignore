@@ -1,0 +1,9 @@
+# Ignore all database files (dynamic memory is unique per instance)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Keep the directory and README
+!.gitignore
+!README.md
