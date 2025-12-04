@@ -32,6 +32,15 @@ def collect_markdown_files():
     """Собирает все markdown файлы из doc/."""
     md_files = list(Path(DOC_DIR).glob("*.md"))
     md_files = [f for f in md_files if not f.name.startswith("README")]
+    
+    # Исключаем русские файлы (пока обучаем только на английском)
+    RUSSIAN_FILES = [
+        "it's_me_cain_russian.md",
+        # ariannabook.md - на английском, включаем!
+    ]
+    
+    md_files = [f for f in md_files if f.name not in RUSSIAN_FILES]
+    
     return sorted(md_files)
 
 def process_markdown_to_conversations():

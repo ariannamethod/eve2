@@ -28,6 +28,15 @@ def collect_markdown_files():
     md_files = glob.glob(os.path.join(DOC_DIR, "*.md"))
     # Исключаем README.md и другие служебные файлы если нужно
     md_files = [f for f in md_files if not os.path.basename(f).startswith("README")]
+    
+    # Исключаем русские файлы (пока обучаем только на английском)
+    RUSSIAN_FILES = [
+        "it's_me_cain_russian.md",
+        # ariannabook.md - на английском, включаем!
+    ]
+    
+    md_files = [f for f in md_files if os.path.basename(f) not in RUSSIAN_FILES]
+    
     return sorted(md_files)
 
 def prepare_text_data():
