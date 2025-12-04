@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Model outputs
+out/
+*.bin
+*.pt
+*.pth
+*.ckpt
+
+# Data
+data/
+!data/README.md
+
+# Dynamic state (unique per instance)
+state/*.db
+state/*.db-*
+
+# Logs
+*.log
+log/
+logs/
+
+# Temporary
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# Build artifacts
+*.o
+*.obj
+*.exe
+run
+runq
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Chat history
+.arianna_chat_history.json
+.chat_history/
+
+# Weights (gitignored, use LFS or external storage)
+weights/
+*.model
+*.tokenizer
