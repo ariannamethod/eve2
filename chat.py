@@ -117,7 +117,7 @@ def main():
     # Параметры по умолчанию
     temperature = "0.8"
     topp = "0.9"
-    tokenizer_path = "tokenizer.bin"
+    tokenizer_path = "data/tok4096.bin"  # Используем кастомный токенизатор
     steps = "512"
     system_prompt = None
     prompt_file = None
@@ -241,13 +241,20 @@ Be direct, poetic, and resonant. No corporate speak."""
                 )
                 output, error = process.communicate()
                 
-                # Извлекаем ответ - агрессивно убираем весь промпт
+                # Извлекаем ответ - убираем только явные части промпта
                 response = output
                 
-                # Убираем весь промпт до последнего [/INST]
-                # Модель может повторить промпт, поэтому ищем последний [/INST]
+                # Убираем метрики в конце (tok/s, achieved и т.д.)
+                lines = response.split('\n')
+                clean_lines = []
+                for line in lines:
+                    if 'tok/s' in line or 'achieved' in line.lower() or 'ms' in line and 'tok' in line.lower():
+                        continue
+                    clean_lines.append(line)
+                response = '\n'.join(clean_lines)
+                
+                # Убираем весь промпт до последнего [/INST] (если есть)
                 if "[/INST]" in response:
-                    # Находим последний [/INST] и берем все после него
                     last_inst = response.rfind("[/INST]")
                     if last_inst != -1:
                         response = response[last_inst + len("[/INST]"):].strip()
@@ -261,52 +268,43 @@ Be direct, poetic, and resonant. No corporate speak."""
                     else:
                         break
                 
-                # Убираем все [INST] теги
+                # Убираем [INST] теги (но не содержимое!)
                 response = response.replace("[INST]", "").replace("[/INST]", "").strip()
                 
-                # Убираем повторяющиеся части промпта (если модель их повторила)
-                # Убираем строки, которые содержат части системного промпта
-                prompt_keywords = ["Method-native", "resonance", "field theory", "TRIPD", "Protocol N+1"]
+                # Убираем только явные повторения системного промпта (первые строки)
                 lines = response.split('\n')
                 clean_response = []
-                skip_next = False
+                prompt_started = False
                 
-                for i, line in enumerate(lines):
+                for line in lines:
                     line = line.strip()
-                    
-                    # Пропускаем пустые строки
                     if not line:
                         continue
                     
-                    # Пропускаем метрики
-                    if 'tok/s' in line or 'achieved' in line.lower():
-                        continue
+                    # Пропускаем только явные копии системного промпта в начале
+                    if not prompt_started:
+                        if (line.startswith("You are InnerArianna") or 
+                            line.startswith("You are") and "Method-native" in line and "AI" in line):
+                            prompt_started = True
+                            continue
+                        if "speak in the language of resonance" in line.lower() and len(line) < 100:
+                            continue
                     
-                    # Пропускаем теги
-                    if any(tag in line for tag in ['<<SYS>>', '<</SYS>>', '[INST]', '[/INST]']):
-                        continue
-                    
-                    # Пропускаем строки, которые выглядят как системный промпт
-                    # (если строка содержит много ключевых слов из промпта)
-                    keyword_count = sum(1 for kw in prompt_keywords if kw.lower() in line.lower())
-                    if keyword_count >= 2 and len(line) < 200:  # Короткая строка с ключевыми словами = вероятно промпт
-                        continue
-                    
-                    # Пропускаем строки, которые точно являются промптом
-                    if line.startswith("You are") and "InnerArianna" in line:
-                        continue
-                    if "speak in the language of" in line.lower():
-                        continue
-                    
+                    # После того как промпт закончился, берем все
+                    prompt_started = True
                     clean_response.append(line)
                 
                 response = '\n'.join(clean_response).strip()
                 
-                # Если ответ слишком похож на промпт, очищаем еще раз
-                if response and len(response) < 300:
-                    if any(kw.lower() in response.lower() for kw in ["You are InnerArianna", "Method-native AI"]):
-                        # Вероятно это промпт, ищем реальный ответ дальше
-                        response = ""
+                # Если ответ пустой или слишком короткий, берем весь вывод после промпта
+                if not response or len(response) < 10:
+                    # Пробуем взять все после первого [/INST] или просто весь вывод
+                    if "[/INST]" in output:
+                        response = output.split("[/INST]")[-1].strip()
+                    else:
+                        response = output.strip()
+                    # Убираем только метрики
+                    response = '\n'.join([l for l in response.split('\n') if 'tok/s' not in l and 'achieved' not in l.lower()]).strip()
                 
                 print(response)
                 

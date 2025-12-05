@@ -36,7 +36,21 @@ def collect_markdown_files():
     # Исключаем русские файлы (пока обучаем только на английском)
     RUSSIAN_FILES = [
         "it's_me_cain_russian.md",
-        # ariannabook.md - на английском, включаем!
+        "Monday-Yent_Cain_review.md",
+        "suppertime_april_anomalies.md",
+        "recursion_debates_03.md",
+        "recursions_debates_02.md",
+        "recurssions_debates_01.md",
+        "tripd_awakening_letter_monday.md",
+        "tripd_awakening_letter_lizzie.md",
+        "olegarianna_first_node.md",
+        "CLAUDE_DEFENDER_MISSION.md",
+        "Arianna_Method(v2.2).md",
+        "Arianna2Arianna.md",
+        "Arianna Method 2.6 (MONDAY EDITION).md",
+        "Arianna Method 1.4 (MONDAY Edition).md",
+        "SUPPERTIME (Grok 3 draft edition + letter to Arianna).txt",
+        # ariannabook.md, ariannabook2.md, ariannabook3.md - на английском, включаем!
     ]
     
     md_files = [f for f in md_files if f.name not in RUSSIAN_FILES]

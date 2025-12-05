@@ -9,8 +9,6 @@ import json
 import os
 import random
 from typing import List
-from concurrent.futures import ProcessPoolExecutor
-from functools import partial
 
 import numpy as np
 import sentencepiece as spm
@@ -21,22 +19,16 @@ from tqdm import tqdm
 from tokenizer import Tokenizer
 
 DATA_CACHE_DIR = "data"
-DOC_DIR = "doc"
+DOC_DIR = "english_train"  # Только английские файлы!
 
 def collect_markdown_files():
-    """Собирает все markdown файлы из doc/ директории."""
+    """Собирает все markdown файлы из english_train/ директории (только английские!)."""
     md_files = glob.glob(os.path.join(DOC_DIR, "*.md"))
+    md_files += glob.glob(os.path.join(DOC_DIR, "*.txt"))  # Включаем .txt файлы тоже
     # Исключаем README.md и другие служебные файлы если нужно
     md_files = [f for f in md_files if not os.path.basename(f).startswith("README")]
     
-    # Исключаем русские файлы (пока обучаем только на английском)
-    RUSSIAN_FILES = [
-        "it's_me_cain_russian.md",
-        # ariannabook.md - на английском, включаем!
-    ]
-    
-    md_files = [f for f in md_files if os.path.basename(f) not in RUSSIAN_FILES]
-    
+    # В english_train уже только английские файлы, но на всякий случай проверяем
     return sorted(md_files)
 
 def prepare_text_data():
@@ -165,10 +157,9 @@ def pretokenize(vocab_size=0):
         bin_dir = os.path.join(DATA_CACHE_DIR, f"tok{vocab_size}")
     os.makedirs(bin_dir, exist_ok=True)
     
-    # Обрабатываем файлы
-    fun = partial(process_markdown_shard, vocab_size=vocab_size)
-    with ProcessPoolExecutor() as executor:
-        executor.map(fun, enumerate(md_files))
+    # Обрабатываем файлы ПОСЛЕДОВАТЕЛЬНО (без multiprocessing из-за проблем с tempdir)
+    for idx, md_file in enumerate(md_files):
+        process_markdown_shard((idx, md_file), vocab_size)
     
     print("✅ Done.")
 

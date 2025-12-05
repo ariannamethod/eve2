@@ -48,8 +48,17 @@ arianna_prompt.txt
 *.prompt
 *.secret
 
+# GitHub tokens and credentials
+*.token
+*.github_token
+.github_token
+github_token.txt
+
 # Internal documentation (optional - uncomment if you want to exclude)
 # MONITORING.md
 # COMMANDS.md
 # PUSH_TO_GITHUB.md
 
+english_train/
+push_with_token.sh
+push_with_token.sh

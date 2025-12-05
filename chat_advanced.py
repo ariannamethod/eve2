@@ -82,7 +82,7 @@ def main():
     # Параметры по умолчанию
     temperature = "0.8"
     topp = "0.9"
-    tokenizer_path = "tokenizer.bin"
+    tokenizer_path = "data/tok4096.bin"  # Используем кастомный токенизатор
     steps = "512"
     system_prompt = None
     
@@ -150,10 +150,27 @@ Be direct, poetic, and resonant. No corporate speak."""
                 'timestamp': datetime.now().isoformat()
             })
             
-            # Строим контекст с историей
-            # Для простоты используем только последнее сообщение + системный промпт
-            # (run.c chat режим не поддерживает длинную историю напрямую)
-            full_prompt = f"{system_prompt}\n\nUser: {user_input}\nAssistant:"
+            # Строим промпт в формате Llama 2 Chat (как в chat.py)
+            if history:
+                # Если есть история, строим контекст
+                prompt_parts = [f"[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n"]
+                
+                # Добавляем последние N сообщений из истории
+                recent_history = history[-MAX_HISTORY:]
+                for msg in recent_history:
+                    role = msg.get('role', 'user')
+                    content = msg.get('content', '')
+                    if role == 'user':
+                        prompt_parts.append(f"{content} [/INST]")
+                    elif role == 'assistant':
+                        prompt_parts.append(f" {content} [INST]")
+                
+                # Добавляем текущий ввод
+                prompt_parts.append(f"{user_input} [/INST]")
+                full_prompt = "".join(prompt_parts)
+            else:
+                # Первое сообщение - чистое состояние
+                full_prompt = f"[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n{user_input} [/INST]"
             
             # Запускаем ./run в generate режиме с полным промптом
             cmd = [
@@ -179,20 +196,43 @@ Be direct, poetic, and resonant. No corporate speak."""
                 
                 output, error = process.communicate()
                 
-                # Извлекаем ответ (убираем промпт из вывода)
+                # Извлекаем ответ - убираем промпт (как в chat.py)
                 response = output
-                if "Assistant:" in response:
-                    response = response.split("Assistant:")[-1].strip()
                 
-                # Убираем лишние строки с метриками
+                # Убираем метрики
                 lines = response.split('\n')
-                clean_response = []
+                clean_lines = []
                 for line in lines:
-                    if 'tok/s' in line or 'achieved' in line.lower():
+                    if 'tok/s' in line or 'achieved' in line.lower() or 'ms' in line and 'tok' in line.lower():
                         continue
-                    clean_response.append(line)
+                    clean_lines.append(line)
+                response = '\n'.join(clean_lines)
                 
-                response = '\n'.join(clean_response).strip()
+                # Убираем весь промпт до последнего [/INST]
+                if "[/INST]" in response:
+                    last_inst = response.rfind("[/INST]")
+                    if last_inst != -1:
+                        response = response[last_inst + len("[/INST]"):].strip()
+                
+                # Убираем системный промпт если он попал
+                while "<<SYS>>" in response:
+                    sys_start = response.find("<<SYS>>")
+                    sys_end = response.find("<</SYS>>")
+                    if sys_start != -1 and sys_end != -1:
+                        response = (response[:sys_start] + response[sys_end + len("<</SYS>>"):]).strip()
+                    else:
+                        break
+                
+                # Убираем [INST] теги
+                response = response.replace("[INST]", "").replace("[/INST]", "").strip()
+                
+                # Если ответ пустой, берем весь вывод после промпта
+                if not response or len(response) < 10:
+                    if "[/INST]" in output:
+                        response = output.split("[/INST]")[-1].strip()
+                    else:
+                        response = output.strip()
+                    response = '\n'.join([l for l in response.split('\n') if 'tok/s' not in l and 'achieved' not in l.lower()]).strip()
                 
                 print(response)
                 
