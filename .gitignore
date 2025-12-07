@@ -5,15 +5,18 @@ __pycache__/
 *.so
 .Python
 
-# Training data and models
-data/
-out/
+# Training data and models (except important artifacts)
 external_corpus/
-*.bin
-*.pt
 training.log
-*.log
+training_v*.log
 training_continue.log
+
+# Allow important files
+!out/arianna_v1_base.bin
+!out/ckpt_v1_base.pt
+!out/model.bin
+!out/ckpt.pt
+!data/arianna_conversations.jsonl
 
 # Compiled binaries
 run
