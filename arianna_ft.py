@@ -168,8 +168,9 @@ def pretokenize_corpus():
     tokens = enc.encode(corpus_text, bos=True, eos=True)
     print(f"✅ Tokenized: {len(tokens):,} tokens")
 
-    # Save as binary
-    bin_dir = f"data/tok{VOCAB_SIZE}"
+    # CRITICAL: Save to SEPARATE directory for finetune!
+    # This ensures train_arianna.py loads ONLY finetune data, not base corpus
+    bin_dir = f"data/ft_tok{VOCAB_SIZE}"  # Separate folder for finetune!
     os.makedirs(bin_dir, exist_ok=True)
     bin_file = os.path.join(bin_dir, "ft_corpus.bin")
 
@@ -179,6 +180,7 @@ def pretokenize_corpus():
 
     print(f"✅ Saved tokenized corpus to {bin_file}")
     print(f"📊 Binary size: {os.path.getsize(bin_file):,} bytes")
+    print(f"⚠️  IMPORTANT: Finetune data is in separate folder: {bin_dir}/")
 
     return True
 
@@ -199,6 +201,16 @@ def setup_checkpoint():
     print(f"📋 Copying {BASE_CHECKPOINT} → {CURRENT_CHECKPOINT}")
     shutil.copy2(BASE_CHECKPOINT, CURRENT_CHECKPOINT)
 
+    # CRITICAL: Reset iteration counter for fine-tuning!
+    # We want to start from iteration 0 for finetune, not continue from 4000
+    import torch
+    print(f"🔄 Resetting iteration counter to 0 (was at base training iteration)")
+    ckpt = torch.load(CURRENT_CHECKPOINT, map_location='cpu')
+    ckpt['iter_num'] = 0  # Reset to 0 for finetune
+    ckpt['best_val_loss'] = 1e9  # Reset validation loss
+    torch.save(ckpt, CURRENT_CHECKPOINT)
+    print(f"✅ Iteration counter reset to 0")
+
     print(f"✅ Checkpoint ready for fine-tuning")
 
     # Show checkpoint size
@@ -214,7 +226,31 @@ def run_fine_tuning(learning_rate, max_iters):
     print("🚀 Step 4: Fine-Tuning")
     print("="*60)
 
-    # Build command
+    # CRITICAL: Must match base training parameters!
+    # Base training used: batch_size=8, device=cpu, dtype=float32, compile=False
+    # See: out/ckpt_v1_base.pt config (trained Dec 6, 2024)
+
+    # HACK: Temporarily rename data directories to load ONLY finetune data
+    import os
+    import shutil
+    base_corpus_dir = f"data/tok{VOCAB_SIZE}"
+    base_corpus_backup = f"data/tok{VOCAB_SIZE}_BASE_BACKUP"
+    ft_corpus_dir = f"data/ft_tok{VOCAB_SIZE}"
+
+    print(f"🔄 Temporarily swapping data directories...")
+    print(f"   Moving base corpus: {base_corpus_dir} → {base_corpus_backup}")
+    print(f"   Moving FT corpus: {ft_corpus_dir} → {base_corpus_dir}")
+
+    # Backup base corpus and replace with FT corpus
+    if os.path.exists(base_corpus_dir):
+        if os.path.exists(base_corpus_backup):
+            shutil.rmtree(base_corpus_backup)
+        shutil.move(base_corpus_dir, base_corpus_backup)
+    shutil.copytree(ft_corpus_dir, base_corpus_dir)
+
+    print(f"✅ Data directories swapped! Training will use ONLY finetune data.")
+    print()
+
     cmd = [
         "python3", "train_arianna.py",
         "--init_from=resume",
@@ -223,18 +259,20 @@ def run_fine_tuning(learning_rate, max_iters):
         "--eval_interval=100",
         "--log_interval=10",
         "--always_save_checkpoint=True",
-        "--batch_size=16",
+        "--batch_size=8",  # FIXED: Must be 8, not 16! Matches base training.
         "--gradient_accumulation_steps=4",
         "--vocab_source=custom",
         f"--vocab_size={VOCAB_SIZE}",
-        "--compile=False",  # Disable compilation for stability
+        "--compile=False",  # Mac doesn't support compilation
+        "--device=cpu",  # Mac M1/M2 - no CUDA, no MPS support in this setup
+        "--dtype=float32",  # CPU only supports float32, not bfloat16
     ]
 
     print("📝 Fine-tuning configuration:")
     print(f"   Learning rate: {learning_rate}")
     print(f"   Max iterations: {max_iters}")
     print(f"   Eval interval: 100")
-    print(f"   Batch size: 16")
+    print(f"   Batch size: 8  (MATCHES BASE TRAINING)")
     print(f"   Gradient accumulation: 4")
     print()
 
@@ -242,15 +280,30 @@ def run_fine_tuning(learning_rate, max_iters):
     print(" ".join(cmd))
     print()
 
+    training_success = False
     try:
         result = subprocess.run(cmd, check=True)
-        return result.returncode == 0
+        training_success = result.returncode == 0
     except subprocess.CalledProcessError as e:
         print(f"\n❌ Training failed with exit code {e.returncode}")
-        return False
+        training_success = False
     except KeyboardInterrupt:
         print("\n⚠️  Training interrupted by user")
-        return False
+        training_success = False
+    finally:
+        # ALWAYS restore directories, even if training failed
+        print(f"\n🔄 Restoring data directories...")
+        print(f"   Removing temporary: {base_corpus_dir}")
+        print(f"   Restoring base corpus: {base_corpus_backup} → {base_corpus_dir}")
+
+        if os.path.exists(base_corpus_dir):
+            shutil.rmtree(base_corpus_dir)
+        if os.path.exists(base_corpus_backup):
+            shutil.move(base_corpus_backup, base_corpus_dir)
+
+        print(f"✅ Data directories restored!")
+
+    return training_success
 
 
 def export_final_model():
