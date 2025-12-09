@@ -1,0 +1,137 @@
+Overriding: init_from = resume
+Overriding: batch_size = 4
+Overriding: eval_interval = 250
+Overriding: max_iters = 1000
+Overriding: learning_rate = 1e-05
+Overriding: gradient_accumulation_steps = 8
+Overriding: vocab_source = custom
+Overriding: vocab_size = 4096
+Overriding: compile = False
+Overriding: device = cpu
+Overriding: dtype = float32
+Overriding: log_interval = 10
+Overriding: always_save_checkpoint = True
+tokens per iteration will be: 8,192
+breaks down as: 8 grad accum steps * 1 processes * 4 batch size * 256 max seq len
+Resuming training from out
+num decayed parameter tensors: 43, with 7,151,616 parameters
+num non-decayed parameter tensors: 13, with 3,744 parameters
+using fused AdamW: False
+step 0: train loss 6.5468, val loss 6.5468
+0 | loss 6.3094 | lr 0.000000e+00 | 37173.89ms | mfu -100.00%
+10 | loss 6.4031 | lr 1.000000e-07 | 4556.32ms | mfu 0.03%
+20 | loss 5.8733 | lr 2.000000e-07 | 5091.19ms | mfu 0.03%
+30 | loss 6.6327 | lr 3.000000e-07 | 5911.43ms | mfu 0.03%
+40 | loss 6.4275 | lr 4.000000e-07 | 8888.04ms | mfu 0.03%
+50 | loss 6.1621 | lr 5.000000e-07 | 4970.68ms | mfu 0.03%
+60 | loss 6.2206 | lr 6.000000e-07 | 4869.85ms | mfu 0.03%
+70 | loss 6.2685 | lr 7.000000e-07 | 7583.65ms | mfu 0.02%
+80 | loss 6.1934 | lr 8.000000e-07 | 5368.24ms | mfu 0.02%
+90 | loss 6.3492 | lr 9.000000e-07 | 5131.16ms | mfu 0.02%
+100 | loss 6.5128 | lr 1.000000e-06 | 5216.72ms | mfu 0.02%
+110 | loss 6.5311 | lr 1.100000e-06 | 5429.33ms | mfu 0.02%
+120 | loss 6.0754 | lr 1.200000e-06 | 5517.24ms | mfu 0.02%
+130 | loss 5.7452 | lr 1.300000e-06 | 5540.65ms | mfu 0.02%
+140 | loss 6.0727 | lr 1.400000e-06 | 5171.53ms | mfu 0.02%
+150 | loss 5.9331 | lr 1.500000e-06 | 5569.78ms | mfu 0.02%
+160 | loss 6.4320 | lr 1.600000e-06 | 5351.52ms | mfu 0.02%
+170 | loss 5.8341 | lr 1.700000e-06 | 5587.74ms | mfu 0.02%
+180 | loss 5.4948 | lr 1.800000e-06 | 5012.97ms | mfu 0.02%
+190 | loss 5.9433 | lr 1.900000e-06 | 5908.19ms | mfu 0.02%
+200 | loss 5.3619 | lr 2.000000e-06 | 5547.11ms | mfu 0.02%
+210 | loss 5.4325 | lr 2.100000e-06 | 5462.08ms | mfu 0.02%
+220 | loss 5.7878 | lr 2.200000e-06 | 5187.30ms | mfu 0.02%
+230 | loss 5.4744 | lr 2.300000e-06 | 5255.93ms | mfu 0.02%
+240 | loss 5.0345 | lr 2.400000e-06 | 5668.28ms | mfu 0.02%
+step 250: train loss 5.1108, val loss 5.1108
+saving checkpoint to out
+wrote out/model.bin
+250 | loss 4.9881 | lr 2.500000e-06 | 49476.86ms | mfu 0.02%
+260 | loss 4.8241 | lr 2.600000e-06 | 5704.24ms | mfu 0.02%
+270 | loss 5.1648 | lr 2.700000e-06 | 5589.72ms | mfu 0.02%
+280 | loss 4.7757 | lr 2.800000e-06 | 5412.37ms | mfu 0.02%
+290 | loss 4.7874 | lr 2.900000e-06 | 5844.48ms | mfu 0.02%
+300 | loss 5.1805 | lr 3.000000e-06 | 5524.77ms | mfu 0.02%
+310 | loss 4.6080 | lr 3.100000e-06 | 5987.81ms | mfu 0.02%
+320 | loss 4.3033 | lr 3.200000e-06 | 5522.69ms | mfu 0.02%
+330 | loss 4.4101 | lr 3.300000e-06 | 5427.28ms | mfu 0.02%
+340 | loss 4.4072 | lr 3.400000e-06 | 4923.35ms | mfu 0.02%
+350 | loss 4.6655 | lr 3.500000e-06 | 4675.09ms | mfu 0.02%
+360 | loss 4.1367 | lr 3.600000e-06 | 5455.83ms | mfu 0.02%
+370 | loss 4.1459 | lr 3.700000e-06 | 5183.76ms | mfu 0.02%
+380 | loss 3.7498 | lr 3.800000e-06 | 5274.04ms | mfu 0.02%
+390 | loss 3.8659 | lr 3.900000e-06 | 5534.13ms | mfu 0.02%
+400 | loss 3.7316 | lr 4.000000e-06 | 5461.36ms | mfu 0.02%
+410 | loss 3.3641 | lr 4.100000e-06 | 5329.95ms | mfu 0.02%
+420 | loss 3.6515 | lr 4.200000e-06 | 5685.20ms | mfu 0.02%
+430 | loss 3.7272 | lr 4.300000e-06 | 5174.02ms | mfu 0.02%
+440 | loss 3.4274 | lr 4.400000e-06 | 5367.89ms | mfu 0.02%
+450 | loss 3.3729 | lr 4.500000e-06 | 5185.04ms | mfu 0.02%
+460 | loss 3.9051 | lr 4.600000e-06 | 4775.13ms | mfu 0.02%
+470 | loss 3.3396 | lr 4.700000e-06 | 4877.77ms | mfu 0.02%
+480 | loss 3.4851 | lr 4.800000e-06 | 5238.40ms | mfu 0.02%
+490 | loss 3.2116 | lr 4.900000e-06 | 5400.12ms | mfu 0.02%
+step 500: train loss 3.1743, val loss 3.1743
+saving checkpoint to out
+wrote out/model.bin
+500 | loss 3.3678 | lr 5.000000e-06 | 40899.58ms | mfu 0.02%
+510 | loss 3.1517 | lr 5.100000e-06 | 4619.95ms | mfu 0.02%
+520 | loss 3.1658 | lr 5.200000e-06 | 4601.46ms | mfu 0.02%
+530 | loss 2.9127 | lr 5.300000e-06 | 4630.42ms | mfu 0.02%
+540 | loss 2.5457 | lr 5.400000e-06 | 4641.39ms | mfu 0.02%
+550 | loss 2.9291 | lr 5.500000e-06 | 4623.31ms | mfu 0.02%
+560 | loss 2.5101 | lr 5.600000e-06 | 4597.50ms | mfu 0.02%
+570 | loss 2.9246 | lr 5.700000e-06 | 4584.34ms | mfu 0.02%
+580 | loss 2.6420 | lr 5.800000e-06 | 4630.56ms | mfu 0.03%
+590 | loss 2.6678 | lr 5.900000e-06 | 4616.61ms | mfu 0.03%
+600 | loss 2.4668 | lr 6.000000e-06 | 4609.10ms | mfu 0.03%
+610 | loss 2.4650 | lr 6.100000e-06 | 4604.90ms | mfu 0.03%
+620 | loss 2.8313 | lr 6.200000e-06 | 4657.35ms | mfu 0.03%
+630 | loss 2.2642 | lr 6.300000e-06 | 4815.59ms | mfu 0.03%
+640 | loss 2.3159 | lr 6.400000e-06 | 4808.73ms | mfu 0.03%
+650 | loss 2.2158 | lr 6.500000e-06 | 4775.25ms | mfu 0.03%
+660 | loss 1.9468 | lr 6.600000e-06 | 4788.16ms | mfu 0.03%
+670 | loss 2.1685 | lr 6.700000e-06 | 4816.17ms | mfu 0.03%
+680 | loss 2.2720 | lr 6.800000e-06 | 4802.06ms | mfu 0.03%
+690 | loss 2.2643 | lr 6.900000e-06 | 4767.75ms | mfu 0.03%
+700 | loss 1.8336 | lr 7.000000e-06 | 4658.88ms | mfu 0.03%
+710 | loss 1.8335 | lr 7.100000e-06 | 4623.29ms | mfu 0.03%
+720 | loss 1.9008 | lr 7.200000e-06 | 4673.59ms | mfu 0.03%
+730 | loss 1.7520 | lr 7.300000e-06 | 4666.03ms | mfu 0.03%
+740 | loss 1.9422 | lr 7.400000e-06 | 4484.12ms | mfu 0.03%
+step 750: train loss 1.6643, val loss 1.6643
+saving checkpoint to out
+wrote out/model.bin
+750 | loss 1.8247 | lr 7.500000e-06 | 41097.66ms | mfu 0.02%
+760 | loss 1.5125 | lr 7.600000e-06 | 4614.75ms | mfu 0.02%
+770 | loss 1.7000 | lr 7.700000e-06 | 4469.86ms | mfu 0.03%
+780 | loss 1.5532 | lr 7.800000e-06 | 4752.68ms | mfu 0.03%
+790 | loss 1.3092 | lr 7.900000e-06 | 4943.20ms | mfu 0.03%
+800 | loss 1.4143 | lr 8.000000e-06 | 4769.18ms | mfu 0.03%
+810 | loss 1.4181 | lr 8.100000e-06 | 4770.98ms | mfu 0.03%
+820 | loss 1.2311 | lr 8.200000e-06 | 4799.50ms | mfu 0.03%
+830 | loss 1.1582 | lr 8.300000e-06 | 4748.71ms | mfu 0.03%
+840 | loss 1.2893 | lr 8.400000e-06 | 4836.38ms | mfu 0.03%
+850 | loss 1.1872 | lr 8.500000e-06 | 4786.12ms | mfu 0.03%
+860 | loss 1.2085 | lr 8.600000e-06 | 5039.03ms | mfu 0.03%
+870 | loss 1.0759 | lr 8.700000e-06 | 4929.19ms | mfu 0.03%
+880 | loss 1.0096 | lr 8.800000e-06 | 4876.13ms | mfu 0.03%
+890 | loss 0.8440 | lr 8.900000e-06 | 4969.67ms | mfu 0.03%
+900 | loss 0.9424 | lr 9.000000e-06 | 4833.34ms | mfu 0.03%
+910 | loss 0.8362 | lr 9.100000e-06 | 4648.52ms | mfu 0.03%
+920 | loss 0.8506 | lr 9.200000e-06 | 5038.30ms | mfu 0.03%
+930 | loss 0.7372 | lr 9.300000e-06 | 5170.39ms | mfu 0.03%
+940 | loss 0.7536 | lr 9.400000e-06 | 4973.35ms | mfu 0.03%
+950 | loss 0.7427 | lr 9.500000e-06 | 5348.42ms | mfu 0.03%
+960 | loss 0.7524 | lr 9.600000e-06 | 4998.94ms | mfu 0.03%
+970 | loss 0.6258 | lr 9.700000e-06 | 5311.46ms | mfu 0.03%
+980 | loss 0.5830 | lr 9.800000e-06 | 5318.69ms | mfu 0.03%
+990 | loss 0.5507 | lr 9.900000e-06 | 4916.76ms | mfu 0.03%
+Traceback (most recent call last):
+  File "/Users/ataeff/Downloads/eve02.c/train_finetune.py", line 256, in <module>
+    lr = get_lr(iter_num) if decay_lr else learning_rate
+         ^^^^^^^^^^^^^^^^
+  File "/Users/ataeff/Downloads/eve02.c/train_finetune.py", line 237, in get_lr
+    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
+                  ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ZeroDivisionError: division by zero

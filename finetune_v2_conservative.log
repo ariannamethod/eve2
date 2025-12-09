@@ -1,0 +1,88 @@
+Overriding: init_from = resume
+Overriding: max_iters = 4500
+Overriding: learning_rate = 5e-06
+Overriding: eval_interval = 100
+Overriding: log_interval = 10
+Overriding: always_save_checkpoint = True
+Overriding: batch_size = 4
+Overriding: gradient_accumulation_steps = 8
+Overriding: vocab_source = custom
+Overriding: vocab_size = 4096
+Overriding: compile = False
+Overriding: device = cpu
+Overriding: dtype = float32
+tokens per iteration will be: 8,192
+breaks down as: 8 grad accum steps * 1 processes * 4 batch size * 256 max seq len
+Resuming training from out
+num decayed parameter tensors: 43, with 7,151,616 parameters
+num non-decayed parameter tensors: 13, with 3,744 parameters
+using fused AdamW: False
+step 4000: train loss 6.5468, val loss 6.5468
+saving checkpoint to out
+wrote out/model.bin
+4000 | loss 6.3094 | lr 2.475778e-07 | 36382.03ms | mfu -100.00%
+4010 | loss 6.3946 | lr 2.379324e-07 | 4299.10ms | mfu 0.03%
+4020 | loss 5.8594 | lr 2.284692e-07 | 4427.36ms | mfu 0.03%
+4030 | loss 6.6178 | lr 2.191890e-07 | 4598.57ms | mfu 0.03%
+4040 | loss 6.4218 | lr 2.100925e-07 | 4221.81ms | mfu 0.03%
+4050 | loss 6.1732 | lr 2.011806e-07 | 4241.23ms | mfu 0.03%
+4060 | loss 6.2581 | lr 1.924538e-07 | 4369.54ms | mfu 0.03%
+4070 | loss 6.3249 | lr 1.839130e-07 | 4692.20ms | mfu 0.03%
+4080 | loss 6.3002 | lr 1.755588e-07 | 4528.77ms | mfu 0.03%
+4090 | loss 6.5010 | lr 1.673918e-07 | 4353.20ms | mfu 0.03%
+step 4100: train loss 6.4177, val loss 6.4177
+saving checkpoint to out
+wrote out/model.bin
+4100 | loss 6.6913 | lr 1.594128e-07 | 39170.99ms | mfu 0.03%
+4110 | loss 6.7307 | lr 1.516224e-07 | 4492.25ms | mfu 0.03%
+4120 | loss 6.2982 | lr 1.440211e-07 | 4718.63ms | mfu 0.03%
+4130 | loss 6.1402 | lr 1.366097e-07 | 4322.65ms | mfu 0.03%
+4140 | loss 6.5524 | lr 1.293887e-07 | 4667.45ms | mfu 0.03%
+4150 | loss 6.3694 | lr 1.223587e-07 | 4640.17ms | mfu 0.03%
+4160 | loss 6.8767 | lr 1.155203e-07 | 5018.93ms | mfu 0.03%
+4170 | loss 6.4362 | lr 1.088739e-07 | 4698.86ms | mfu 0.03%
+4180 | loss 6.0698 | lr 1.024202e-07 | 4437.57ms | mfu 0.03%
+4190 | loss 6.6845 | lr 9.615970e-08 | 4729.62ms | mfu 0.03%
+step 4200: train loss 6.3423, val loss 6.3423
+saving checkpoint to out
+wrote out/model.bin
+4200 | loss 6.1177 | lr 9.009285e-08 | 42902.06ms | mfu 0.02%
+4210 | loss 6.1656 | lr 8.422016e-08 | 4713.98ms | mfu 0.02%
+4220 | loss 6.6509 | lr 7.854210e-08 | 5184.19ms | mfu 0.02%
+4230 | loss 6.5311 | lr 7.305913e-08 | 4762.68ms | mfu 0.02%
+4240 | loss 6.2531 | lr 6.777170e-08 | 4782.46ms | mfu 0.03%
+4250 | loss 6.1116 | lr 6.268022e-08 | 4597.80ms | mfu 0.03%
+4260 | loss 6.0606 | lr 5.778511e-08 | 5331.34ms | mfu 0.03%
+4270 | loss 6.4664 | lr 5.308677e-08 | 5387.56ms | mfu 0.03%
+4280 | loss 6.2642 | lr 4.858557e-08 | 5345.30ms | mfu 0.02%
+4290 | loss 6.3422 | lr 4.428187e-08 | 4863.33ms | mfu 0.02%
+step 4300: train loss 6.3043, val loss 6.3043
+saving checkpoint to out
+wrote out/model.bin
+4300 | loss 6.7813 | lr 4.017603e-08 | 41162.27ms | mfu 0.02%
+4310 | loss 6.2297 | lr 3.626837e-08 | 4541.66ms | mfu 0.02%
+4320 | loss 6.0897 | lr 3.255920e-08 | 4467.97ms | mfu 0.02%
+4330 | loss 6.3280 | lr 2.904883e-08 | 4615.34ms | mfu 0.02%
+4340 | loss 6.3828 | lr 2.573754e-08 | 4444.86ms | mfu 0.02%
+4350 | loss 6.7704 | lr 2.262560e-08 | 4417.57ms | mfu 0.03%
+4360 | loss 6.2106 | lr 1.971325e-08 | 4541.23ms | mfu 0.03%
+4370 | loss 6.2485 | lr 1.700073e-08 | 4702.78ms | mfu 0.03%
+4380 | loss 6.2344 | lr 1.448826e-08 | 4865.21ms | mfu 0.03%
+4390 | loss 6.0927 | lr 1.217604e-08 | 4838.61ms | mfu 0.03%
+step 4400: train loss 6.2904, val loss 6.2904
+saving checkpoint to out
+wrote out/model.bin
+4400 | loss 6.1074 | lr 1.006427e-08 | 43630.07ms | mfu 0.02%
+4410 | loss 6.0395 | lr 8.153095e-09 | 4757.46ms | mfu 0.02%
+4420 | loss 6.2386 | lr 6.442687e-09 | 4876.21ms | mfu 0.02%
+4430 | loss 6.3807 | lr 4.933179e-09 | 4850.48ms | mfu 0.02%
+4440 | loss 6.2485 | lr 3.624693e-09 | 4897.55ms | mfu 0.02%
+4450 | loss 5.9578 | lr 2.517334e-09 | 4808.95ms | mfu 0.02%
+4460 | loss 6.6390 | lr 1.611191e-09 | 5008.69ms | mfu 0.02%
+4470 | loss 6.3958 | lr 9.063375e-10 | 4676.76ms | mfu 0.02%
+4480 | loss 6.7398 | lr 4.028302e-10 | 4956.30ms | mfu 0.02%
+4490 | loss 6.2417 | lr 1.007096e-10 | 4811.38ms | mfu 0.03%
+step 4500: train loss 6.2885, val loss 6.2885
+saving checkpoint to out
+wrote out/model.bin
+4500 | loss 6.2826 | lr 0.000000e+00 | 44394.70ms | mfu 0.02%
